@@ -1,8 +1,12 @@
-window.TjUntil = {
+var md5 = require('../lib/md5');
+var url = require('../lib/url');
+var config = require('./config');
+
+module.exports = {
     getSiteId: function () {
         var siteId = ''
         var scripts = document.getElementsByTagName("script")
-        var el, url, re = /^http:\/\/([\w\.]+?)\/flux\.js\?(\w{1,50})$/i
+        var el, url, re = /^https?:\/\/([\w\.]+?)\/tongji\.js\?(\w{1,50})$/i
 
         for (var i = 0; i <= scripts.length - 1; i++) {
             el = scripts[i]
@@ -21,7 +25,7 @@ window.TjUntil = {
      * 汇报普通数据
      * data 字符串,需要“&”开头，如 &a=1&b=2
      * */
-    submitLog: function (data,siteId,uid, cb) {
+    submitLog: function (data, siteId, cb) {
         var img = new Image
 
         img.onload = img.onerror = img.onabort = function () {
@@ -29,10 +33,11 @@ window.TjUntil = {
             img = null
             cb && (typeof cb === 'function') && cb(url)
         }
-        //this.outLog(data)
+        this.outLog(config)
+        this.outLog(data)
         var _data = encodeURIComponent(JSON.stringify(data))
-        var code = md5(TjConfig.logSubmitUrl + siteId + uid + _data)
-        var url = TjConfig.logSubmitUrl + '?s=' + siteId + '&u=' + uid + '&c=' + code + '&d=' + _data
+        var code = md5(config.LogSubmitUrl + siteId + _data)
+        var url = config.LogSubmitUrl + '?s=' + siteId + '&c=' + code + '&d=' + _data
         img.src = url
         this.outLog(url)
     },
@@ -43,21 +48,22 @@ window.TjUntil = {
      * 依赖 https://github.com/websanova/js-url 库提供的 url方法
      * */
     getSearchEngineInfo: function () {
-        var infoArr = [];
+        var infoArr = {};
         var ref = document.referrer
-        var searchEngines = TjConfig.searchEngines
+        var searchEngines = config.searchEngines
         if (ref) {
             var hostname = url('hostname', ref)
             infoArr['type'] = 'other';
-            infoArr['query'] = '';
+            //infoArr['query'] = '';
             if (searchEngines[hostname]) {
-                infoArr['type'] = searchEngines[hostname]['engine'];
-                infoArr['query'] = searchEngines[hostname]['query'];
+                infoArr['type'] = [searchEngines[hostname]['engine'], hostname];
+                //infoArr['query'] = searchEngines[hostname]['query'];
+                infoArr['kw'] = this.getSearchKeywords(searchEngines[hostname]['query'])
             }
         } else {
             // 直接访问
             infoArr['type'] = 'direct';
-            infoArr['query'] = '';
+            //infoArr['query'] = '';
         }
         return infoArr;
     },
@@ -78,6 +84,7 @@ window.TjUntil = {
         keyword = encodeURI(keyword);
         return keywords;
     },
+    /*
     loadScript: function (url, cb) {
         var el = document.createElement("script")
         el.charset = "utf-8"
@@ -94,6 +101,7 @@ window.TjUntil = {
         var fsel = document.getElementsByTagName("script")[0]
         fsel.parentNode.insertBefore(el, fsel)
     },
+    */
     // 汇报热力图等数据
     // data 字符串,需要“&”开头，如 &a=1&b=2
     heatmaplog: function (data, cb) {
@@ -103,62 +111,9 @@ window.TjUntil = {
             img = null
             cb && (typeof cb === 'function') && cb()
         }
-        img.src = TjConfig.hotMapSubmitUrl + '?site=' + SiteId + '&click=1&data=' + encodeURIComponent(JSON.stringify(data))
+        img.src = config.hotMapSubmitUrl + '?site=' + SiteId + '&click=1&data=' + encodeURIComponent(JSON.stringify(data))
     },
-    getPerformanceTiming: function () {
-        var performance = window.performance;
-
-        if (!performance) {
-            // 当前浏览器不支持
-            // console.log('你的浏览器不支持 performance 接口');
-            return;
-        }
-
-        var t = performance.timing;
-        var times = {};
-
-        //【重要】页面加载完成的时间
-        //【原因】这几乎代表了用户等待页面可用的时间
-        times.load = t.loadEventEnd - t.navigationStart;
-
-        //【重要】解析 DOM 树结构的时间
-        //【原因】反省下你的 DOM 树嵌套是不是太多了！
-        times.dr = t.domComplete - t.responseEnd;
-
-        //【重要】重定向的时间
-        //【原因】拒绝重定向！比如，http://example.com/ 就不该写成 http://example.com
-        times.rr = t.redirectEnd - t.redirectStart;
-
-        //【重要】DNS 查询时间
-        //【原因】DNS 预加载做了么？页面内是不是使用了太多不同的域名导致域名查询的时间太长？
-        // 可使用 HTML5 Prefetch 预查询 DNS ，见：[HTML5 prefetch](http://segmentfault.com/a/1190000000633364)
-        times.dns = t.domainLookupEnd - t.domainLookupStart;
-
-        //【重要】读取页面第一个字节的时间
-        //【原因】这可以理解为用户拿到你的资源占用的时间，加异地机房了么，加CDN 处理了么？加带宽了么？加 CPU 运算速度了么？
-        // TTFB 即 Time To First Byte 的意思
-        // 维基百科：https://en.wikipedia.org/wiki/Time_To_First_Byte
-        times.ttfb = t.responseStart - t.navigationStart;
-
-        //【重要】内容加载完成的时间
-        //【原因】页面内容经过 gzip 压缩了么，静态资源 css/js 等压缩了么？
-        times.req = t.responseEnd - t.requestStart;
-
-        //【重要】执行 onload 回调函数的时间
-        //【原因】是否太多不必要的操作都放到 onload 回调函数里执行了，考虑过延迟加载、按需加载的策略么？
-        times.le = t.loadEventEnd - t.loadEventStart;
-
-        // DNS 缓存时间
-        //times.appcache = t.domainLookupStart - t.fetchStart;
-
-        // 卸载页面的时间
-        //times.unloadEvent = t.unloadEventEnd - t.unloadEventStart;
-
-        // TCP 建立连接完成握手的时间
-        times.ct = t.connectEnd - t.connectStart;
-
-        return times;
-    },
+    
     // Is the given value an array? Use ES5 Array.isArray if it's available.
     isArray: Array.isArray || function (value) {
         return Object.prototype.toString.call(value) === '[object Array]';
@@ -207,5 +162,5 @@ window.TjUntil = {
         if (/(\bdebug\b|^file:)/i.test(location.href) && console) {
             console.log(data)
         }
-    },
+    }
 };
