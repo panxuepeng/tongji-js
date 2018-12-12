@@ -1,6 +1,17 @@
 var md5 = require('../lib/md5');
-var url = require('../lib/url');
+//var url = require('../lib/url');
 var config = require('./config');
+var env = require('./env');
+
+if (env) {
+    if (env.LogSubmitUrl) {
+        config.LogSubmitUrl = env.LogSubmitUrl
+    }
+    if (env.HotmapSubmitUrl) {
+        config.HotmapSubmitUrl = env.HotmapSubmitUrl
+    }
+    
+}
 
 module.exports = {
     getSiteId: function () {
@@ -37,7 +48,7 @@ module.exports = {
         this.outLog(data)
         var _data = encodeURIComponent(JSON.stringify(data))
         var code = md5(config.LogSubmitUrl + siteId + _data)
-        var url = config.LogSubmitUrl + '?s=' + siteId + '&c=' + code + '&d=' + _data
+        var url = config.LogSubmitUrl + '?site=' + siteId + '&c=' + code + '&d=' + _data
         img.src = url
         this.outLog(url)
     },
@@ -49,10 +60,15 @@ module.exports = {
      * */
     getSearchEngineInfo: function () {
         var infoArr = {};
-        var ref = document.referrer
+        var hostname = '', ref = document.referrer
         var searchEngines = config.searchEngines
+        
         if (ref) {
-            var hostname = url('hostname', ref)
+            // hostname = url('hostname', ref)
+            var matchs = /\/\/([\w.]+)/.exec(ref)
+            if (matchs && this.isArray(matchs) && matchs[1]) {
+                hostname = matchs[1]
+            }
             infoArr['type'] = 'other';
             //infoArr['query'] = '';
             if (searchEngines[hostname]) {

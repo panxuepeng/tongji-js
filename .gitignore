@@ -1,5 +1,6 @@
 node_modules/
 npm-debug.log
+env.js
 
 ### vim ###
 .*.s[a-w][a-z]
